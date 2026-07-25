@@ -1,0 +1,20 @@
+# Replace api.example.com with your actual domain. Caddy will provision a
+# Let's Encrypt certificate automatically on first request. If you run this
+# locally without a public domain, replace the site name with :80 and drop TLS.
+
+api.example.com {
+	encode zstd gzip
+
+	# Large uploads for game saves.
+	request_body {
+		max_size 1GB
+	}
+
+	# Long timeouts for save uploads on slow home connections.
+	reverse_proxy api:8080 {
+		transport http {
+			read_timeout 30m
+			write_timeout 30m
+		}
+	}
+}
