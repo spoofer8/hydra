@@ -35,7 +35,26 @@ interface LinkSource {
   url: string;
 }
 
-type EmulatorSourceEntry = GithubAssetSource | LinkSource;
+// Forgejo/Gitea-hosted release stream. Same asset-name-matching semantics as
+// GithubAssetSource; the only difference is the API base URL and endpoint
+// shape. Used for Ryubing (git.ryujinx.app) — post-DMCA the actively-maintained
+// Ryujinx fork moved off GitHub and self-hosts a Forgejo instance. Forgejo
+// exposes a Gitea-compatible `/api/v1/repos/{owner}/{repo}/releases` endpoint
+// with the exact same response shape (tag_name, assets[].browser_download_url,
+// prerelease, draft), so the rest of the resolver stays as-is.
+interface ForgejoAssetSource {
+  type: "forgejo";
+  id: string;
+  binary: EmulatorBinary;
+  baseUrl: string; // e.g. "https://git.ryujinx.app"
+  repo: string; // "{owner}/{repo}" e.g. "projects/Ryubing"
+  channel: ReleaseChannel;
+  channelLabel: EmulatorInstallChannel | null;
+  assetPattern: RegExp;
+  kind: Exclude<EmulatorInstallKind, "link">;
+}
+
+type EmulatorSourceEntry = GithubAssetSource | LinkSource | ForgejoAssetSource;
 
 const duckstationEntries = (
   os: InstallOs,
@@ -206,6 +225,56 @@ const rpcs3Entries = (
   return entries;
 };
 
+// Ryubing (Ryujinx community fork continuing after Ryujinx was archived Oct
+// 2024 and yuzu was DMCA'd). Distributed via a self-hosted Forgejo instance at
+// git.ryujinx.app under `projects/Ryubing`, NOT GitHub. Asset naming pattern:
+//   ryujinx-<version>-win_x64.zip
+//   ryujinx-<version>-x64.AppImage
+//   ryujinx-<version>-arm64.AppImage
+//   ryujinx-<version>-macos_universal.app.tar.gz
+const ryujinxEntries = (
+  os: InstallOs,
+  arch: InstallArch
+): EmulatorSourceEntry[] => {
+  const base = {
+    binary: "ryujinx" as const,
+    baseUrl: "https://git.ryujinx.app",
+    repo: "projects/Ryubing",
+    channel: "release" as const,
+    channelLabel: null,
+  };
+
+  if (os === "win32") {
+    // Ryubing does not currently publish a Windows ARM64 build; ARM64 Windows
+    // users get the x64 build (runs under x64 emulation). If ARM64 shows up in
+    // future releases, add a separate pattern branch here.
+    return [
+      {
+        type: "forgejo",
+        ...base,
+        id: "ryubing-install",
+        assetPattern: /^ryujinx-.+-win_x64\.zip$/i,
+        kind: "windows-archive",
+      },
+    ];
+  }
+
+  const assetPattern =
+    arch === "arm64"
+      ? /^ryujinx-.+-arm64\.AppImage$/i
+      : /^ryujinx-.+-x64\.AppImage$/i;
+
+  return [
+    {
+      type: "forgejo",
+      ...base,
+      id: "ryubing-install",
+      assetPattern,
+      kind: "linux-appimage",
+    },
+  ];
+};
+
 const githubEntries = (
   binary: EmulatorBinary,
   os: InstallOs,
@@ -214,6 +283,7 @@ const githubEntries = (
   if (binary === "duckstation") return duckstationEntries(os, arch);
   if (binary === "pcsx2") return pcsx2Entries(os, arch);
   if (binary === "rpcs3") return rpcs3Entries(os, arch);
+  if (binary === "ryujinx") return ryujinxEntries(os, arch);
   return [];
 };
 
@@ -327,6 +397,106 @@ const resolveGithubOption = async (
   };
 };
 
+const FORGEJO_API_TIMEOUT_MS = 15_000;
+const FORGEJO_RELEASES_PAGE_SIZE = 20;
+
+// Fetches a release from a Forgejo/Gitea instance. Response shape matches
+// GitHub's (`tag_name`, `assets[].name`, `assets[].browser_download_url`,
+// `prerelease`, `draft`) so we can reuse GithubRelease/GithubAsset types.
+// Forgejo has no "latest" tag alias like GitHub does, so we always fetch a
+// page and pick the first non-draft entry that matches the channel.
+const fetchForgejoRelease = async (
+  baseUrl: string,
+  repo: string,
+  channel: ReleaseChannel
+): Promise<GithubRelease | null> => {
+  const config = {
+    headers: {
+      Accept: "application/json",
+      "User-Agent": "HydraLauncher",
+    },
+    timeout: FORGEJO_API_TIMEOUT_MS,
+  };
+
+  try {
+    const { data } = await axios.get<GithubRelease[]>(
+      `${baseUrl}/api/v1/repos/${repo}/releases?limit=${FORGEJO_RELEASES_PAGE_SIZE}`,
+      config
+    );
+
+    if (!Array.isArray(data)) return null;
+
+    if (channel === "prerelease") {
+      return data.find((release) => release.prerelease && !release.draft) ?? null;
+    }
+
+    return data.find((release) => !release.prerelease && !release.draft) ?? null;
+  } catch (error) {
+    logger.error(
+      `Failed to fetch ${channel} release for ${repo} on ${baseUrl}`,
+      error
+    );
+    return null;
+  }
+};
+
+const resolveForgejoOption = async (
+  entry: ForgejoAssetSource
+): Promise<ResolvedInstallOption> => {
+  const release = await fetchForgejoRelease(entry.baseUrl, entry.repo, entry.channel);
+  const releasesPage = `${entry.baseUrl}/${entry.repo}/releases`;
+
+  if (!release) {
+    return {
+      id: entry.id,
+      binary: entry.binary,
+      kind: "link",
+      channel: entry.channelLabel,
+      downloadUrl: null,
+      fileName: null,
+      version: null,
+      htmlUrl: null,
+      linkUrl: releasesPage,
+      linkKind: "release_page",
+    };
+  }
+
+  const asset = release.assets.find((candidate) =>
+    entry.assetPattern.test(candidate.name)
+  );
+
+  const htmlUrl =
+    release.html_url ?? `${entry.baseUrl}/${entry.repo}/releases/tag/${release.tag_name}`;
+
+  if (!asset) {
+    return {
+      id: entry.id,
+      binary: entry.binary,
+      kind: "link",
+      channel: entry.channelLabel,
+      downloadUrl: null,
+      fileName: null,
+      version: release.tag_name,
+      htmlUrl,
+      linkUrl: htmlUrl,
+      linkKind: "release_page",
+    };
+  }
+
+  return {
+    id: entry.id,
+    binary: entry.binary,
+    kind: entry.kind,
+    channel: entry.channelLabel,
+    downloadUrl: asset.browser_download_url,
+    fileName: asset.name,
+    version: release.tag_name,
+    htmlUrl,
+    linkUrl: null,
+    linkKind: null,
+  };
+};
+
 const normalizeArch = (arch: string): InstallArch =>
   arch === "arm64" ? "arm64" : "x64";
 
@@ -362,6 +532,7 @@ export const resolveInstallOptions = async (
           linkKind: entry.linkKind,
         });
       }
+      if (entry.type === "forgejo") return resolveForgejoOption(entry);
       return resolveGithubOption(entry);
     })
   );

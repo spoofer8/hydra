@@ -375,3 +375,117 @@ export const mergeWriteGamesYml = async (
     return false;
   }
 };
+
+// --- Ryubing (Nintendo Switch) -----------------------------------------------
+// Ryubing keeps the Ryujinx directory layout for continuity:
+//
+//   <config-root>/
+//     Config.json                    (game_dirs, ui prefs, controller bindings)
+//     system/
+//       prod.keys                    (REQUIRED to decrypt games)
+//       title.keys                   (optional; per-title override keys)
+//     bis/
+//       system/Contents/registered/  (installed firmware NCAs)
+//       user/save/<save_data_id>/<user_id>/  (per-title saves)
+//
+// Portable installs (a `portable/` folder next to the executable) take
+// precedence — Ryubing writes there instead of the OS-wide location. Order
+// matters in the candidate lists below: portable first, then per-OS defaults.
+
+export const ryujinxConfigCandidates = (
+  executablePath: string | null
+): string[] => {
+  const home = homedir();
+  const portable = executablePath
+    ? path.join(path.dirname(executablePath), "portable", "Config.json")
+    : null;
+
+  if (process.platform === "win32") {
+    const appData =
+      process.env["APPDATA"] ?? path.join(home, "AppData", "Roaming");
+    return [
+      ...(portable ? [portable] : []),
+      path.join(appData, "Ryujinx", "Config.json"),
+    ];
+  }
+
+  if (process.platform === "darwin") {
+    return [
+      ...(portable ? [portable] : []),
+      path.join(home, "Library", "Application Support", "Ryujinx", "Config.json"),
+    ];
+  }
+
+  return [
+    ...(portable ? [portable] : []),
+    path.join(home, ".config", "Ryujinx", "Config.json"),
+  ];
+};
+
+// Config root is the directory containing Config.json — all Ryubing runtime
+// state (system/, bis/, games/, mods/) lives alongside it.
+export const ryujinxConfigRoots = (executablePath: string | null): string[] =>
+  ryujinxConfigCandidates(executablePath).map((p) => path.dirname(p));
+
+// Parses Ryubing's `Config.json` → returns `game_dirs` (the array Ryubing
+// scans for ROMs — analog to PCSX2's RecursivePaths and RPCS3's games.yml).
+export const readRyujinxGameDirs = async (
+  executablePath: string | null
+): Promise<string[]> => {
+  const configPath = findExistingConfig(ryujinxConfigCandidates(executablePath));
+  if (!configPath) return [];
+  try {
+    const content = await fs.readFile(configPath, "utf-8");
+    const parsed = JSON.parse(content);
+    const dirs = parsed?.game_dirs;
+    if (!Array.isArray(dirs)) return [];
+    return dirs.filter((d): d is string => typeof d === "string");
+  } catch {
+    return [];
+  }
+};
+
+// Adds a folder to Ryubing's `game_dirs` if not already present. Additive,
+// preserves all other keys. No backup file — Config.json is JSON so a corrupt
+// write is easy to spot; RPCS3's YAML backup exists because a bad merge there
+// silently loses games until reloaded.
+export const addRyujinxGameDir = async (
+  executablePath: string | null,
+  folderPath: string
+): Promise<boolean> => {
+  const configPath = findExistingConfig(ryujinxConfigCandidates(executablePath));
+  if (!configPath) return false;
+  try {
+    const content = await fs.readFile(configPath, "utf-8");
+    const parsed = JSON.parse(content);
+    if (!parsed || typeof parsed !== "object") return false;
+    const current = Array.isArray(parsed.game_dirs) ? parsed.game_dirs : [];
+    if (current.includes(folderPath)) return false;
+    parsed.game_dirs = [...current, folderPath];
+    await fs.writeFile(configPath, JSON.stringify(parsed, null, 2), "utf-8");
+    return true;
+  } catch {
+    return false;
+  }
+};
+
+// `system/` holds prod.keys (required) and title.keys (optional). Presence
+// detection for the setup wizard lives in firmware-detection.ts; this just
+// resolves the directory.
+export const ryujinxSystemDirs = (executablePath: string | null): string[] =>
+  ryujinxConfigRoots(executablePath).map((r) => path.join(r, "system"));
+
+// Firmware is a set of ~30 NCA files under bis/system/Contents/registered/,
+// installed via Ryubing's built-in installer (Tools → Install Firmware).
+export const ryujinxFirmwareDirs = (executablePath: string | null): string[] =>
+  ryujinxConfigRoots(executablePath).map((r) =>
+    path.join(r, "bis", "system", "Contents", "registered")
+  );
+
+// Save root — enumerated per (save_data_id, user_id) at cloud-save time.
+// save_data_id → title_id mapping requires parsing bis/system/save/8000000000000000
+// (system save DB); v1 keeps saves keyed by save_data_id.
+export const ryujinxSaveDirs = (executablePath: string | null): string[] =>
+  ryujinxConfigRoots(executablePath).map((r) =>
+    path.join(r, "bis", "user", "save")
+  );

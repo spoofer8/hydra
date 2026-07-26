@@ -82,6 +82,20 @@ export const KNOWN_BINARIES: Record<EmulatorSystem, KnownBinary> = {
     romExtensions: [".iso", ".pkg", ".elf", ".self"],
     romDirectoryMarkers: ["PS3_GAME", "ps3_game"],
   },
+  switch: {
+    system: "switch",
+    binary: "ryujinx",
+    // Ryubing is the community fork of Ryujinx (original archived Oct 2024).
+    // Keeps the "Ryujinx" binary name for drop-in compatibility with existing
+    // configs, guides, and third-party tooling.
+    displayName: "Ryubing",
+    linuxNames: ["Ryujinx", "ryujinx", "Ryujinx.sh"],
+    windowsNames: ["Ryujinx.exe"],
+    flatpakIds: [],
+    versionFlags: ["--version"],
+    romExtensions: [".nsp", ".xci", ".nca", ".nso"],
+    romDirectoryMarkers: [],
+  },
 };
 
 export const EMULATOR_BINARIES: readonly EmulatorBinary[] = Object.values(
