@@ -13,8 +13,10 @@ import { HydraApi, WindowManager, emulators, logger } from "@main/services";
 import { clearFinishedDownload, platformToSystem } from "@main/helpers";
 import {
   fetchShopDetailsForSkus,
+  lookupSwitchTitles,
   normalizeSku,
   type LaunchboxShopDetailsEntry,
+  type SwitchTitleMetadata,
 } from "@main/services/emulators";
 import {
   gamesShopAssetsSublevel,
@@ -339,6 +341,43 @@ const SYSTEM_CATALOGUE_PLATFORM: Record<EmulatorSystem, string> = {
 
 const normalizePlatformName = (value: string): string =>
   value.trim().toLowerCase().replace(/\s+/g, " ");
+
+/**
+ * Build a synthetic LaunchboxShopDetailsEntry from a titledb hit. Downstream
+ * code (buildEnriched, aggregateMatches, gamesShopAssetsSublevel, the
+ * library UI) treats every entry the same — objectId + shop tuple as
+ * opaque, `data.title` + `data.assets` as display data. Using
+ * shop:"launchbox" so the persisted (shop, objectId) key aligns with the
+ * rest of the classics library; Hydra's LaunchBox API won't recognize
+ * the objectId but nothing here calls back through that endpoint for
+ * Switch entries. `platform: "Nintendo Switch"` short-circuits
+ * entryMatchesSystemPlatform (line above).
+ */
+const switchTitledbToEntry = (
+  titleId: string,
+  metadata: SwitchTitleMetadata
+): LaunchboxShopDetailsEntry => ({
+  objectId: titleId.toUpperCase(),
+  shop: "launchbox",
+  platform: "Nintendo Switch",
+  matchedSkus: [titleId.toUpperCase()],
+  data: {
+    title: metadata.name,
+    platform: "Nintendo Switch",
+    description: metadata.description ?? null,
+    releaseDate: metadata.releaseDate ?? null,
+    publishers: metadata.publisher ? [metadata.publisher] : undefined,
+    assets: {
+      objectId: titleId.toUpperCase(),
+      shop: "launchbox",
+      title: metadata.name,
+      iconUrl: metadata.iconUrl,
+      libraryImageUrl: metadata.bannerUrl,
+      libraryHeroImageUrl: metadata.bannerUrl,
+      logoImageUrl: null,
+    },
+  },
+});
 
 const entryMatchesSystemPlatform = (
   entry: LaunchboxShopDetailsEntry,
@@ -822,6 +861,30 @@ export async function runLaunchboxImport(
     )
   );
   const skuLookup = await fetchShopDetailsForSkus(uniqueSkus);
+  if (signal.cancelled) return cancelledResult();
+
+  // Switch fallback: LaunchBox's shop-details endpoint returns [] for Switch
+  // title IDs — its classics catalogue doesn't cover Switch. For any Switch
+  // SKU we couldn't match via LaunchBox, look it up in titledb (community-
+  // maintained Switch DB, keyed by 16-hex title ID) and synthesize an entry
+  // in the same shape so buildEnriched/aggregateMatches see it as matched.
+  // No-op for other systems.
+  if (system === "switch") {
+    const unmatchedSwitchSkus = uniqueSkus.filter(
+      (sku) => !skuLookup.has(normalizeSku(sku))
+    );
+    if (unmatchedSwitchSkus.length > 0) {
+      const titledbHits = await lookupSwitchTitles(unmatchedSwitchSkus);
+      for (const [titleId, metadata] of titledbHits) {
+        const entry = switchTitledbToEntry(titleId, metadata);
+        skuLookup.set(normalizeSku(titleId), entry);
+      }
+      logger.log("[launchbox-import] switch titledb fallback", {
+        queried: unmatchedSwitchSkus.length,
+        matched: titledbHits.size,
+      });
+    }
+  }
   if (signal.cancelled) return cancelledResult();
 
   const { enriched, groupCanonical } = buildEnriched(

@@ -15,6 +15,7 @@ export * from "./extract-disc-sku";
 export * from "./playtime-files";
 export * from "./emulator-session-tracker";
 export * from "./launchbox-shop-details";
+export * from "./switch-titledb";
 export * from "./ps2-memcard-dirs";
 export * from "./ps2-memory-card";
 export * from "./ps1-memcard-dirs";
