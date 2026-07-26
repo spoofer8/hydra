@@ -65,8 +65,14 @@ export function SetupStepSwitchFirmware({
     }
   };
 
-  const openDocs = () => {
-    window.electron.openExternal("https://ryubing.org/");
+  const openFirmwareGuide = () => {
+    // Third-party guide with a step-by-step walkthrough of downloading and
+    // installing Switch firmware for Ryujinx-derived emulators. Matches the
+    // prod.keys page pattern — one canonical link users can follow rather
+    // than an in-app explanation that has to stay in sync with the guide.
+    window.electron.openExternal(
+      "https://prodkeys.net/ryujinx-firmware-v5/"
+    );
   };
 
   return (
@@ -78,48 +84,21 @@ export function SetupStepSwitchFirmware({
       </h3>
       <div>
         <p className="setup-modal__body-intro" style={{ margin: 0 }}>
-          {t("setup_switch_firmware_intro_1", {
+          {t("setup_switch_firmware_intro", {
             defaultValue:
-              "Ryubing needs Nintendo Switch firmware to launch games. Dump it from your own console — Nintendo does not distribute firmware.",
+              "Ryubing needs Nintendo Switch firmware to launch games. Follow the guide below to download and install it, then come back and click Check again.",
           })}
         </p>
-        <p className="setup-modal__body-intro" style={{ margin: 0 }}>
-          {t("setup_switch_firmware_intro_2", {
-            defaultValue:
-              "Install the firmware from within Ryubing: Tools → Install Firmware → From XCI or Nintendo bundle.",
-          })}
-        </p>
-      </div>
-
-      <div className="setup-modal__numbered-list">
-        <div className="setup-modal__numbered-item">
-          <span className="setup-modal__numbered-marker">1</span>
-          <span className="setup-modal__numbered-text">
-            {t("setup_switch_firmware_step_1", {
-              defaultValue:
-                "Dump firmware from your Switch (NxDumpTool) or export from a system update .zip.",
-            })}
-          </span>
-        </div>
-        <div className="setup-modal__numbered-item">
-          <span className="setup-modal__numbered-marker">2</span>
-          <span className="setup-modal__numbered-text">
-            {t("setup_switch_firmware_step_2", {
-              defaultValue:
-                "Open Ryubing → Tools → Install Firmware → From XCI, then select your dump.",
-            })}
-          </span>
-        </div>
       </div>
 
       <div className="setup-modal__hint">
         <button
           type="button"
           className="setup-modal__link-button"
-          onClick={openDocs}
+          onClick={openFirmwareGuide}
         >
           {t("setup_switch_firmware_guide", {
-            defaultValue: "Open Ryubing setup docs",
+            defaultValue: "Open firmware guide",
           })}
         </button>
         {config.executablePath && (
@@ -129,7 +108,7 @@ export function SetupStepSwitchFirmware({
             onClick={openRyubing}
           >
             {t("setup_switch_firmware_open_emulator", {
-              defaultValue: "Open Ryubing",
+              defaultValue: "Launch Ryubing",
             })}
           </button>
         )}
