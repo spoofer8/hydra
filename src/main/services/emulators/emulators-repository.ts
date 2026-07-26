@@ -2,7 +2,12 @@ import { emulatorsSublevel } from "@main/level";
 import type { EmulatorConfig, EmulatorConfigMap, EmulatorSystem } from "@types";
 import { KNOWN_BINARIES } from "./known-binaries";
 
-const SYSTEMS: EmulatorSystem[] = ["ps1", "ps2", "ps3"];
+// Derived from KNOWN_BINARIES so new emulator systems (added by extending the
+// EmulatorSystem union and the KNOWN_BINARIES record) automatically get
+// enumerated by getAllEmulatorConfigs / detectEmulators without another edit
+// here. If you forget to add a system to KNOWN_BINARIES, the renderer will
+// crash reading `.detectedAt` on undefined — see ADDING_EMULATORS.md.
+const SYSTEMS: EmulatorSystem[] = Object.keys(KNOWN_BINARIES) as EmulatorSystem[];
 
 const emptyConfig = (system: EmulatorSystem): EmulatorConfig => ({
   system,

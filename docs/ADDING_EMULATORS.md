@@ -196,5 +196,6 @@ Manual QA:
 3. **Assuming release assets have version-stable names.** Always test the regex against the CURRENT release, not what the download page said last year. Rolling channels (like DuckStation's `tags/latest`) are safer than semver-tagged releases.
 4. **Auto-installer that assumes a Windows installer format when the emulator ships as a portable zip.** Check `EmulatorInstallKind` — `windows-installer` runs the exe, `windows-archive` extracts to a folder.
 5. **Silently narrowing types with `as any` / `!`.** Every one hides a real branch you forgot to add. The typecheck IS the checklist.
+6. **Hardcoded runtime string arrays TypeScript can't check.** Watch for `["ps1", "ps2", "ps3"]` as a bare array literal — it's a `string[]` at runtime and won't error when the union widens. The two places this bit Switch integration were `src/main/services/emulators/emulators-repository.ts` and `src/main/events/emulators/detect-emulators.ts`; both now derive `SYSTEMS` from `Object.keys(KNOWN_BINARIES)` so they auto-widen. Any new such array should follow the same pattern. Symptom if you miss one: renderer crashes with `Cannot read properties of undefined (reading 'detectedAt')` because a system was widened in `EmulatorSystem` but the config map wasn't populated for it.
 
 If you hit something not covered here, extend this doc.

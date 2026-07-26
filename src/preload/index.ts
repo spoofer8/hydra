@@ -736,7 +736,7 @@ contextBridge.exposeInMainWorld("electron", {
       removeDiscPath?: string;
     }
   ) => ipcRenderer.invoke("updateClassicsDisc", shop, objectId, patch),
-  getEmulatorRomExtensions: (system: "ps1" | "ps2" | "ps3") =>
+  getEmulatorRomExtensions: (system: EmulatorSystem) =>
     ipcRenderer.invoke("getEmulatorRomExtensions", system),
   closeGame: (shop: GameShop, objectId: string) =>
     ipcRenderer.invoke("closeGame", shop, objectId),

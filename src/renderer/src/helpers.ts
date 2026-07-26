@@ -323,16 +323,18 @@ export const getClassicsLaunchErrorCode = (
   return CLASSICS_LAUNCH_ERROR_CODES.find((code) => message.includes(code));
 };
 
+const ALL_SYSTEMS = ["ps1", "ps2", "ps3", "switch"] as const;
+
 export const getClassicsLaunchErrorSystem = (
   error: unknown
-): "ps1" | "ps2" | "ps3" | undefined => {
+): EmulatorSystem | undefined => {
   const direct = (error as { system?: string })?.system;
-  if (direct === "ps1" || direct === "ps2" || direct === "ps3") return direct;
+  if ((ALL_SYSTEMS as readonly string[]).includes(direct as string)) {
+    return direct as EmulatorSystem;
+  }
 
   let message = "";
   if (error instanceof Error) message = error.message;
   else if (typeof error === "string") message = error;
-  return (["ps1", "ps2", "ps3"] as const).find((system) =>
-    message.includes(system)
-  );
+  return ALL_SYSTEMS.find((system) => message.includes(system));
 };

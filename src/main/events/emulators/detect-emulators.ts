@@ -2,7 +2,11 @@ import { registerEvent } from "../register-event";
 import { emulators } from "@main/services";
 import type { EmulatorConfigMap, EmulatorSystem } from "@types";
 
-const SYSTEMS: EmulatorSystem[] = ["ps1", "ps2", "ps3"];
+// Derived from KNOWN_BINARIES so new emulator systems get detected without
+// another edit here. See ADDING_EMULATORS.md for the full pattern.
+const SYSTEMS: EmulatorSystem[] = Object.keys(
+  emulators.KNOWN_BINARIES
+) as EmulatorSystem[];
 
 const detectEmulatorsEvent = async (): Promise<EmulatorConfigMap> => {
   const results = await Promise.all(
