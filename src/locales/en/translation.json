@@ -1262,6 +1262,8 @@
     "setup_switch_keys_check_again": "Check again",
     "setup_switch_keys_open_folder": "Open folder",
     "setup_install_with_hydra_short": "Install {{name}} with Hydra",
+    "setup_rescan": "Rescan",
+    "setup_rescan_running": "Scanning…",
     "setup_more_install_options": "More install options",
     "setup_download_rescan": "Rescan for installed emulator",
     "setup_download_rescanning": "Scanning…",

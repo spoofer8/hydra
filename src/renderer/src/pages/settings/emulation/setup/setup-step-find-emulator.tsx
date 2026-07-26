@@ -21,6 +21,12 @@ interface Props {
   detecting?: boolean;
   onBrowse: () => void;
   onShowDownloadHelp: () => void;
+  // Rescan re-runs previewEmulatorExecutable, which searches PATH, Hydra's
+  // own install directory (~appdata/hydralauncher/Emulators/…), and the
+  // per-OS default install locations for the current binary. Wired on this
+  // page so users who install the emulator outside Hydra's auto-installer
+  // can trigger detection without leaving the main setup step.
+  onRescan: () => void | Promise<void>;
   // Install state passed down from the modal so the primary install action
   // is available inline on this page (rather than hidden behind a
   // "Show download options" click). Same state feeds the download subpage.
@@ -35,6 +41,7 @@ export function SetupStepFindEmulator({
   detecting = false,
   onBrowse,
   onShowDownloadHelp,
+  onRescan,
   installOptions,
   installProgress,
   installingId,
@@ -129,6 +136,28 @@ export function SetupStepFindEmulator({
             {config.executablePath ?? t("setup_emulator_not_found_hint")}
           </span>
         </div>
+        {/*
+          Rescan lives inside the status card so it's visually adjacent to
+          the "not found" state — the moment users look for a way to say
+          "I just installed it, look again". Also handy after install to
+          re-verify. Disabled during an active scan to prevent duplicate
+          previewEmulatorExecutable calls racing each other.
+        */}
+        <Button
+          theme="outline"
+          onClick={() => void onRescan()}
+          disabled={detecting}
+        >
+          <SyncIcon
+            size={14}
+            className={detecting ? "setup-modal__spin" : ""}
+          />
+          <span>
+            {detecting
+              ? t("setup_rescan_running", { defaultValue: "Scanning…" })
+              : t("setup_rescan", { defaultValue: "Rescan" })}
+          </span>
+        </Button>
       </div>
 
       {showPrimary && primaryOption && (

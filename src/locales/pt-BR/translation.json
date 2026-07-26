@@ -1223,6 +1223,8 @@
     "setup_switch_keys_check_again": "Verificar novamente",
     "setup_switch_keys_open_folder": "Abrir pasta",
     "setup_install_with_hydra_short": "Instalar {{name}} com o Hydra",
+    "setup_rescan": "Verificar novamente",
+    "setup_rescan_running": "Verificando…",
     "setup_more_install_options": "Mais opções de instalação",
     "setup_download_rescan": "Verificar emulador instalado",
     "setup_download_rescanning": "Verificando…",

@@ -550,6 +550,7 @@ export function EmulatorSetupModal({
               detecting={detecting}
               onBrowse={handleBrowseExecutable}
               onShowDownloadHelp={() => setShowDownloadHelp(true)}
+              onRescan={handleRescan}
               installOptions={installOptions}
               installProgress={installProgress}
               installingId={installingId}
