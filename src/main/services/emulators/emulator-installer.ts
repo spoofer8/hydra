@@ -126,6 +126,7 @@ const BINARY_TO_SYSTEM: Record<EmulatorBinary, EmulatorSystem> = {
   duckstation: "ps1",
   pcsx2: "ps2",
   rpcs3: "ps3",
+  ryujinx: "switch",
 };
 
 const autoConfigureEmulator = async (

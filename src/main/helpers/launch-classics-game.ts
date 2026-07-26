@@ -128,6 +128,13 @@ const buildEmulatorArgs = (
       return ["-batch", "-fullscreen", "--", discPath];
     case "rpcs3":
       return ["--no-gui", discPath];
+    case "ryujinx":
+      // Ryubing/Ryujinx boots a ROM given as the first positional argument.
+      // No universal fullscreen CLI flag across Ryubing/Ryujinx builds — the
+      // user's saved config controls fullscreen state instead. If missing
+      // prod.keys or firmware, Ryubing pops its own error dialog on launch;
+      // Hydra doesn't pre-flight (matches how RPCS3 firmware is handled).
+      return [discPath];
   }
 };
 

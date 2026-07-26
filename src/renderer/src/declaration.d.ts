@@ -357,7 +357,7 @@ declare global {
       }
     ) => Promise<LibraryGame>;
     getEmulatorRomExtensions: (
-      system: "ps1" | "ps2" | "ps3"
+      system: EmulatorSystem
     ) => Promise<string[]>;
     closeGame: (shop: GameShop, objectId: string) => Promise<boolean>;
     removeGameFromLibrary: (shop: GameShop, objectId: string) => Promise<void>;
@@ -490,6 +490,20 @@ declare global {
     checkPs3Firmware: (
       executablePath: string | null
     ) => Promise<{ installed: boolean }>;
+    /*
+     * Switch (Ryubing) prerequisites. Returns richer state than PS3 firmware
+     * because Switch has three independent prereqs (prod.keys required,
+     * title.keys optional, firmware NCA install) that the wizard walks the
+     * user through in separate steps.
+     */
+    checkSwitchFirmware: (executablePath: string | null) => Promise<{
+      prodKeysPresent: boolean;
+      titleKeysPresent: boolean;
+      firmwareInstalled: boolean;
+      keysPath: string | null;
+      firmwarePath: string | null;
+      firmwareNcaCount: number;
+    }>;
     checkEmulatorBios: (
       system: EmulatorSystem,
       executablePath: string | null,
@@ -520,6 +534,11 @@ declare global {
       gamesDir: string | null;
       gamesYmlPath: string | null;
       gamesYmlEntries: { titleId: string; path: string }[];
+    }>;
+    /* Ryubing (Switch) default sources — Config.json location + game_dirs. */
+    getRyubingDefaultSources: () => Promise<{
+      configPath: string | null;
+      gameDirs: string[];
     }>;
     removeEmulator: (system: EmulatorSystem) => Promise<EmulatorConfig>;
     checkEmulatorExecutable: (

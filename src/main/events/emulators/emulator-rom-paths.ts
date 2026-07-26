@@ -7,6 +7,12 @@ const getEmulatorRomPaths = async (
   system: EmulatorSystem
 ) => {
   const config = await emulators.getEmulatorConfig(system);
+  // Switch (Ryubing) stores ROM paths in Config.json → game_dirs, not in an INI
+  // RecursivePaths section. Route to the Ryubing-specific reader; PS1/PS2
+  // continue to use readRecursivePaths.
+  if (system === "switch") {
+    return emulators.readRyujinxGameDirs(config.executablePath);
+  }
   return emulators.readRecursivePaths(system, config.executablePath);
 };
 
@@ -16,6 +22,9 @@ const addEmulatorRomPath = async (
   folderPath: string
 ) => {
   const config = await emulators.getEmulatorConfig(system);
+  if (system === "switch") {
+    return emulators.addRyujinxGameDir(config.executablePath, folderPath);
+  }
   return emulators.addRecursivePath(system, config.executablePath, folderPath);
 };
 
@@ -39,6 +48,22 @@ const getRpcs3DefaultSources = async () => {
   };
 };
 
+// Ryubing (Switch) default discovery sources. Symmetrical with the RPCS3 event
+// so the settings UI can render "here's the config file we found + the folders
+// already registered in it" for both. No title-id map yet — that requires
+// parsing bis/system/save/8000000000000000 (deferred to v2).
+const getRyubingDefaultSources = async () => {
+  const config = await emulators.getEmulatorConfig("switch");
+  const exe = config.executablePath;
+  return {
+    configPath: emulators.findExistingConfig(
+      emulators.ryujinxConfigCandidates(exe)
+    ),
+    gameDirs: await emulators.readRyujinxGameDirs(exe),
+  };
+};
+
 registerEvent("getEmulatorRomPaths", getEmulatorRomPaths);
 registerEvent("addEmulatorRomPath", addEmulatorRomPath);
 registerEvent("getRpcs3DefaultSources", getRpcs3DefaultSources);
+registerEvent("getRyubingDefaultSources", getRyubingDefaultSources);

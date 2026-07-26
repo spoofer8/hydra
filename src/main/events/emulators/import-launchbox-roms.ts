@@ -157,6 +157,7 @@ const SYSTEM_DEFAULT_PLATFORM: Record<EmulatorSystem, string> = {
   ps1: "PlayStation",
   ps2: "PlayStation 2",
   ps3: "PlayStation 3",
+  switch: "Nintendo Switch",
 };
 
 const persistEntryLocally = async (
@@ -330,6 +331,10 @@ const SYSTEM_CATALOGUE_PLATFORM: Record<EmulatorSystem, string> = {
   ps1: "Sony Playstation",
   ps2: "Sony Playstation 2",
   ps3: "Sony Playstation 3",
+  // LaunchBox's exact platform label for the Switch, per launchbox-app.com's
+  // official Platforms list. Case-sensitive when matched against LaunchBox
+  // metadata dumps.
+  switch: "Nintendo Switch",
 };
 
 const normalizePlatformName = (value: string): string =>
