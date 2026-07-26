@@ -38,6 +38,12 @@ export const platformToSystem = (
 ): EmulatorSystem | null => {
   if (!platform) return null;
   const p = platform.toLowerCase();
+  // Order matters — check "switch" BEFORE the PlayStation branches so
+  // "Nintendo Switch" doesn't get consumed by the broader "playstation"
+  // regex (it wouldn't today, but is a real risk if that regex is ever
+  // relaxed). `\bswitch\b` alone would also match "OLED Switch" etc, so
+  // require a "nintendo" or "nsw" anchor to avoid false positives.
+  if (/nintendo\s*switch|\bnsw\b/.test(p)) return "switch";
   if (/playstation\s*3|\bps3\b/.test(p)) return "ps3";
   if (/playstation\s*2|\bps2\b/.test(p)) return "ps2";
   if (/playstation|\bps1\b|\bpsx\b/.test(p)) return "ps1";
@@ -48,6 +54,7 @@ export const SYSTEM_TO_BINARY: Record<EmulatorSystem, EmulatorBinary> = {
   ps1: "duckstation",
   ps2: "pcsx2",
   ps3: "rpcs3",
+  switch: "ryujinx",
 };
 
 export const formatDownloadProgress = (

@@ -14,12 +14,13 @@ import {
 
 import "./settings-context-emulation.scss";
 
-const SYSTEMS: EmulatorSystem[] = ["ps1", "ps2", "ps3"];
+const SYSTEMS: EmulatorSystem[] = ["ps1", "ps2", "ps3", "switch"];
 
 const SYSTEM_LABELS: Record<EmulatorSystem, string> = {
   ps1: "PlayStation 1",
   ps2: "PlayStation 2",
   ps3: "PlayStation 3",
+  switch: "Nintendo Switch",
 };
 
 export function SettingsContextEmulation() {

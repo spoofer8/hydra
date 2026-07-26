@@ -286,6 +286,10 @@ export function EmulationSettingsSection({
       },
       ps3: {
         left: getItemFocusTarget(EMULATION_OVERVIEW_CARD_FOCUS_IDS.ps2),
+        right: getItemFocusTarget(EMULATION_OVERVIEW_CARD_FOCUS_IDS.switch),
+      },
+      switch: {
+        left: getItemFocusTarget(EMULATION_OVERVIEW_CARD_FOCUS_IDS.ps3),
         right: { type: "block" },
       },
     }),

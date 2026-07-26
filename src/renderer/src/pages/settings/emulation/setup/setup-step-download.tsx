@@ -26,12 +26,14 @@ const OFFICIAL_WEBSITES: Record<EmulatorBinary, string> = {
   duckstation: "https://www.duckstation.org/",
   pcsx2: "https://pcsx2.net/",
   rpcs3: "https://rpcs3.net/",
+  ryujinx: "https://ryubing.org/",
 };
 
 const ARTICLE_KEYS: Record<EmulatorBinary, string> = {
   duckstation: "install-duckstation",
   pcsx2: "install-pcsx2",
   rpcs3: "install-rpcs3",
+  ryujinx: "install-ryubing",
 };
 
 const SEMVER_RE = /v?\d{1,9}\.\d{1,9}(?:\.\d{1,9})?/;

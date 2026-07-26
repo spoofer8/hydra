@@ -21,6 +21,11 @@ export const PICK_FILTERS: Record<
     extensions: ["mcd", "mcr", "mc", "gme", "vgs", "vmp"],
   },
   ps2: { name: "PS2 Memory Card", extensions: ["ps2", "mcd", "mc2"] },
+  // Switch does not use file-picker restore — saves are directory-based and
+  // uploaded/restored via the ryubing save-dir flow (see emulation-cloud-saves).
+  // This entry is a type-satisfier only; the memcard restore modal never
+  // opens for platform="switch".
+  switch: { name: "Nintendo Switch Save", extensions: [] },
 };
 
 export const formatBytes = (bytes: number): string => {

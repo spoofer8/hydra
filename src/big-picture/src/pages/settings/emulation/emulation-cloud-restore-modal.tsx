@@ -32,6 +32,10 @@ const PICK_FILTERS: Record<
     extensions: ["mcd", "mcr", "mc", "gme", "vgs", "vmp"],
   },
   ps2: { name: "PS2 Memory Card", extensions: ["ps2", "mcd", "mc2"] },
+  // Switch saves are directory-based; this entry is a type-satisfier only
+  // (memcard restore modal never opens for platform="switch"). See
+  // emulation-save-modals.tsx for the equivalent in the standard UI.
+  switch: { name: "Nintendo Switch Save", extensions: [] },
 };
 
 interface EmulationCloudRestoreModalProps {
