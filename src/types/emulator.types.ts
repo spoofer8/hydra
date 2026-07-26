@@ -1,6 +1,6 @@
-export type EmulatorSystem = "ps1" | "ps2" | "ps3";
+export type EmulatorSystem = "ps1" | "ps2" | "ps3" | "switch";
 
-export type EmulatorBinary = "duckstation" | "pcsx2" | "rpcs3";
+export type EmulatorBinary = "duckstation" | "pcsx2" | "rpcs3" | "ryujinx";
 
 export interface RomFolder {
   id: string;
@@ -117,8 +117,8 @@ export type MemcardExportResult = Ps2ExportResult;
 
 /* ── Cloud emulation saves (`/profile/emulation-saves`) ───────────────────── */
 
-export type EmulationSavePlatform = "ps1" | "ps2";
-export type EmulationSaveEmulator = "duckstation" | "pcsx2";
+export type EmulationSavePlatform = "ps1" | "ps2" | "switch";
+export type EmulationSaveEmulator = "duckstation" | "pcsx2" | "ryujinx";
 
 export interface EmulationBackupProgress {
   platform: EmulationSavePlatform;
