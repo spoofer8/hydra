@@ -77,13 +77,28 @@ const releaseDateToIso = (raw: number | null | undefined): string | null => {
   return `${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}`;
 };
 
+// Post-Switch-2 launch (June 2025) titledb re-labeled many popular Switch 1
+// title IDs with their Switch 2 Edition names — Nintendo re-uses the same
+// 16-hex title ID for both versions. Users scanning their Switch 1 dumps get
+// e.g. "Zelda TOTK – Nintendo Switch™ 2 Edition" as the name, which is
+// technically correct but visually confusing. Strip the suffix so the library
+// shows the base game title. A generic dash-separated suffix scrub also
+// handles similar Nintendo naming variants ("+ Meetup in Bellabel Park",
+// "+ Jamboree TV", etc.) that come after the Switch 2 Edition marker.
+const NS2_SUFFIX_RE =
+  /\s*[–\-—]\s*Nintendo\s*Switch(?:™|™)?\s*2\s*Edition.*$/i;
+
+const stripNs2Suffix = (name: string): string =>
+  name.replace(NS2_SUFFIX_RE, "").trim();
+
 const normalizeEntry = (
   titleId: string,
   raw: TitledbRawEntry
 ): SwitchTitleMetadata | null => {
   if (!raw || typeof raw !== "object") return null;
-  const name = typeof raw.name === "string" ? raw.name.trim() : "";
-  if (!name) return null;
+  const rawName = typeof raw.name === "string" ? raw.name.trim() : "";
+  if (!rawName) return null;
+  const name = stripNs2Suffix(rawName);
   return {
     titleId,
     name,
