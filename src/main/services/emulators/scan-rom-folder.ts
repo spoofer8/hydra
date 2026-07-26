@@ -89,6 +89,12 @@ const PS2_PAIR_RULES: Record<string, string[]> = {
 
 const PS3_LAUNCHABLE_EXTS = new Set([".iso", ".pkg", ".elf", ".self"]);
 
+// Switch games are always single-file, no sidecar concept, no disc-image
+// sniffing (the header formats are documented but not what Hydra's
+// sniff-disc-platform recognizes). Anything with one of these extensions in
+// a switch-scanned folder is treated as one game.
+const SWITCH_LAUNCHABLE_EXTS = new Set([".nsp", ".xci", ".nca", ".nso"]);
+
 const SNIFFABLE_EXTS = new Set([
   ".cue",
   ".iso",
@@ -247,6 +253,13 @@ const applyPs3Rules = (group: Candidate[]): GameGroup[] =>
     .filter((f) => PS3_LAUNCHABLE_EXTS.has(extOf(f.name)))
     .map((primary) => ({ primary, sidecars: [] }));
 
+// Switch has no sidecars, no disc-image sniffing, no marker directories —
+// every recognized file in the folder is a distinct game.
+const applySwitchRules = (group: Candidate[]): GameGroup[] =>
+  group
+    .filter((f) => SWITCH_LAUNCHABLE_EXTS.has(extOf(f.name)))
+    .map((primary) => ({ primary, sidecars: [] }));
+
 const dedupGames = (binary: KnownBinary, files: Candidate[]): GameGroup[] => {
   const markerDirs = files.filter((f) => f.isMarkerDir);
   const regular = files.filter((f) => !f.isMarkerDir);
@@ -268,6 +281,8 @@ const dedupGames = (binary: KnownBinary, files: Candidate[]): GameGroup[] => {
       games.push(...applyPs3Rules(group));
     } else if (binary.system === "ps2") {
       games.push(...applyPairedRules(group, PS2_PRIMARY_EXTS, PS2_PAIR_RULES));
+    } else if (binary.system === "switch") {
+      games.push(...applySwitchRules(group));
     } else {
       games.push(...applyPairedRules(group, PS1_PRIMARY_EXTS, PS1_PAIR_RULES));
     }
