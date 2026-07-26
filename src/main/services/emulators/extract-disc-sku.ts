@@ -414,10 +414,32 @@ const extractPs3TitleId = async (
   }
 };
 
+// Nintendo Switch title IDs are 16 hex chars (retail games start with `01`,
+// e.g. `0100000000010000` = Super Mario Odyssey). Every mainstream dumping
+// tool (NSC_Builder, nxdumptool, XCI-Explorer) preserves this in the
+// filename, typically inside brackets:
+//   "Super Mario Odyssey [0100000000010000].nsp"
+//   "Zelda BOTW [Update v1.6.0][01007EF00011E000].nsp"
+//   "SMO (0100000000010000).xci"
+//
+// Deeper solution would parse the NSP/XCI header (PFS0/HFS0 structures)
+// but that requires the user's prod.keys to decrypt encrypted regions and
+// is significant binary-format work. Filename extraction covers the common
+// case for zero cost; users with mis-named dumps will get "unmatched" and
+// can rename to include the title ID.
+const SWITCH_TITLE_ID_RE = /\b(01[0-9a-fA-F]{14})\b/;
+
+const extractSwitchTitleId = (primaryPath: string): string | null => {
+  const base = path.basename(primaryPath);
+  const match = SWITCH_TITLE_ID_RE.exec(base);
+  return match ? match[1].toUpperCase() : null;
+};
+
 export const extractDiscSku = async (
   primaryPath: string,
   system: EmulatorSystem
 ): Promise<string | null> => {
   if (system === "ps3") return extractPs3TitleId(primaryPath);
+  if (system === "switch") return extractSwitchTitleId(primaryPath);
   return extractPs12Sku(primaryPath);
 };
