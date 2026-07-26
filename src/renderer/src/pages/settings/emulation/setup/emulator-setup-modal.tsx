@@ -10,6 +10,8 @@ import { SetupStepDownload } from "./setup-step-download";
 import { SetupStepFindEmulator } from "./setup-step-find-emulator";
 import { SetupStepFirmware } from "./setup-step-firmware";
 import { SetupStepBios } from "./setup-step-bios";
+import { SetupStepSwitchKeys } from "./setup-step-switch-keys";
+import { SetupStepSwitchFirmware } from "./setup-step-switch-firmware";
 import { SetupStepRomFolder } from "./setup-step-rom-folder";
 import { SetupStepScanning } from "./setup-step-scanning";
 import { SetupStepDone } from "./setup-step-done";
@@ -43,6 +45,7 @@ export function EmulatorSetupModal({
   const [folders, setFolders] = useState<PendingFolder[]>([]);
   const [firmwareOk, setFirmwareOk] = useState(false);
   const [biosOk, setBiosOk] = useState(false);
+  const [keysOk, setKeysOk] = useState(false);
   const [gamesAdded, setGamesAdded] = useState(0);
   const [scanComplete, setScanComplete] = useState(false);
   const [detecting, setDetecting] = useState(false);
@@ -59,6 +62,7 @@ export function EmulatorSetupModal({
       setFolders([]);
       setFirmwareOk(false);
       setBiosOk(false);
+      setKeysOk(false);
       setGamesAdded(0);
       setScanComplete(false);
       setYmlEntryCount(0);
@@ -245,6 +249,28 @@ export function EmulatorSetupModal({
         return;
       }
 
+      if (system === "switch") {
+        // Ryubing keeps registered ROM folders in Config.json → game_dirs.
+        // Prefill each so the user sees what Ryubing already scans.
+        const sources = await window.electron.getRyubingDefaultSources();
+        if (sources.gameDirs.length === 0) return;
+        const initial: PendingFolder[] = sources.gameDirs.map((p) => ({
+          path: p,
+          scanSubfolders: true,
+          previewCount: null,
+        }));
+        setFolders(initial);
+        for (const f of initial) {
+          const count = await previewFolder(f.path, true);
+          setFolders((prev) =>
+            prev.map((x) =>
+              x.path === f.path ? { ...x, previewCount: count } : x
+            )
+          );
+        }
+        return;
+      }
+
       if (system !== "ps1" && system !== "ps2") return;
 
       const paths = await window.electron.getEmulatorRomPaths(system);
@@ -305,7 +331,9 @@ export function EmulatorSetupModal({
       { path: folderPath, scanSubfolders: true, previewCount: null },
     ]);
 
-    if (system === "ps1" || system === "ps2") {
+    if (system === "ps1" || system === "ps2" || system === "switch") {
+      // For switch, addEmulatorRomPath dispatches to addRyujinxGameDir which
+      // mutates Config.json → game_dirs. See events/emulator-rom-paths.ts.
       window.electron.addEmulatorRomPath(system, folderPath).catch(() => {});
     }
 
@@ -364,11 +392,12 @@ export function EmulatorSetupModal({
   const continueDisabled = useMemo(() => {
     if (currentStep === "find_emulator") return config?.executablePath === null;
     if (currentStep === "firmware") return !firmwareOk;
+    if (currentStep === "keys") return !keysOk;
     if (currentStep === "bios") return !biosOk;
     if (currentStep === "rom_folder") return folders.length === 0;
     if (currentStep === "scanning") return !scanComplete;
     return true;
-  }, [currentStep, config, firmwareOk, biosOk, folders, scanComplete]);
+  }, [currentStep, config, firmwareOk, keysOk, biosOk, folders, scanComplete]);
 
   const continueHidden = currentStep === "done";
 
@@ -379,7 +408,11 @@ export function EmulatorSetupModal({
   };
 
   const handleSkip = () => {
-    if (currentStep === "firmware" || currentStep === "bios") {
+    if (
+      currentStep === "firmware" ||
+      currentStep === "bios" ||
+      currentStep === "keys"
+    ) {
       goNext();
     } else if (currentStep === "rom_folder") {
       refreshConfig();
@@ -418,11 +451,25 @@ export function EmulatorSetupModal({
           {currentStep === "find_emulator" && config && showDownloadHelp && (
             <SetupStepDownload binary={config.binary} />
           )}
-          {currentStep === "firmware" && config && (
+          {currentStep === "firmware" && config && system === "ps3" && (
             <SetupStepFirmware
               config={config}
               systemLabel={systemShort}
               onFirmwareStatusChange={setFirmwareOk}
+              onSkip={handleSkip}
+            />
+          )}
+          {currentStep === "firmware" && config && system === "switch" && (
+            <SetupStepSwitchFirmware
+              config={config}
+              onFirmwareStatusChange={setFirmwareOk}
+              onSkip={handleSkip}
+            />
+          )}
+          {currentStep === "keys" && config && system === "switch" && (
+            <SetupStepSwitchKeys
+              config={config}
+              onKeysStatusChange={setKeysOk}
               onSkip={handleSkip}
             />
           )}
