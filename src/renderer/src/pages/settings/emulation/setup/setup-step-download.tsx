@@ -1,12 +1,14 @@
-import { useEffect, useMemo, useState } from "react";
+import { useMemo } from "react";
 import { useTranslation } from "react-i18next";
 import {
   BookIcon,
+  CheckCircleFillIcon,
   GlobeIcon,
   LinkExternalIcon,
   SyncIcon,
 } from "@primer/octicons-react";
 
+import { Button } from "@renderer/components";
 import type {
   EmulatorBinary,
   EmulatorInstallProgress,
@@ -20,6 +22,15 @@ import { firmwarePageUrl } from "./ps-firmware-url";
 
 interface Props {
   binary: EmulatorBinary;
+  // Install state is owned by the parent modal (also used by the find_emulator
+  // step's inline install button). This page only renders it.
+  installOptions: ResolvedInstallOption[] | null;
+  installProgress: Record<string, EmulatorInstallProgress>;
+  installingId: string | null;
+  onInstall: (optionId: string) => void;
+  onRescan: () => void | Promise<void>;
+  detecting: boolean;
+  detected: boolean;
 }
 
 const OFFICIAL_WEBSITES: Record<EmulatorBinary, string> = {
@@ -41,53 +52,26 @@ const SEMVER_RE = /v?\d{1,9}\.\d{1,9}(?:\.\d{1,9})?/;
 const extractSemver = (value: string | null): string | undefined =>
   (value && SEMVER_RE.exec(value)?.[0]) || undefined;
 
-export function SetupStepDownload({ binary }: Readonly<Props>) {
+export function SetupStepDownload({
+  binary,
+  installOptions,
+  installProgress,
+  installingId,
+  onInstall,
+  onRescan,
+  detecting,
+  detected,
+}: Readonly<Props>) {
   const { t, i18n } = useTranslation("settings");
   const name = KNOWN_BINARY_LABELS[binary];
   const icon = EMULATOR_ICONS[binary];
 
-  const [options, setOptions] = useState<ResolvedInstallOption[] | null>(null);
-  const [progress, setProgress] = useState<
-    Record<string, EmulatorInstallProgress>
-  >({});
-  const [installingId, setInstallingId] = useState<string | null>(null);
-
-  useEffect(() => {
-    let cancelled = false;
-    setOptions(null);
-    window.electron
-      .getEmulatorInstallOptions(binary)
-      .then((result) => {
-        if (!cancelled) setOptions(result);
-      })
-      .catch(() => {
-        if (!cancelled) setOptions([]);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [binary]);
-
-  useEffect(() => {
-    const unsubscribe = window.electron.onEmulatorInstallProgress((payload) => {
-      if (payload.binary !== binary) return;
-      setProgress((prev) => ({ ...prev, [payload.optionId]: payload }));
-    });
-    return unsubscribe;
-  }, [binary]);
+  // Local aliases so the pre-existing helpers below don't need renaming.
+  const options = installOptions;
+  const progress = installProgress;
 
   const openUrl = (url: string) => {
     window.electron.openExternal(url);
-  };
-
-  const handleInstall = async (optionId: string) => {
-    if (installingId) return;
-    setInstallingId(optionId);
-    try {
-      await window.electron.installEmulator(binary, optionId);
-    } finally {
-      setInstallingId(null);
-    }
   };
 
   const installable = useMemo(
@@ -194,15 +178,49 @@ export function SetupStepDownload({ binary }: Readonly<Props>) {
         {t("setup_download_intro", { name })}
       </p>
 
-      <button
-        type="button"
-        className="setup-modal__website-link"
-        onClick={() => openUrl(OFFICIAL_WEBSITES[binary])}
-      >
-        <GlobeIcon size={14} />
-        <span>{t("setup_official_website")}</span>
-        <LinkExternalIcon size={12} />
-      </button>
+      <div className="setup-modal__hint">
+        <button
+          type="button"
+          className="setup-modal__website-link"
+          onClick={() => openUrl(OFFICIAL_WEBSITES[binary])}
+        >
+          <GlobeIcon size={14} />
+          <span>{t("setup_official_website")}</span>
+          <LinkExternalIcon size={12} />
+        </button>
+        {/*
+          Rescan button — for users who install the emulator outside Hydra's
+          auto-install flow (e.g. downloaded from the linked release page or
+          already had it installed). Clicking calls the parent modal's rescan
+          which re-runs detection without leaving this page. `detected` and
+          `detecting` come from the parent so the button shows the current
+          state without a separate fetch here.
+        */}
+        <Button
+          theme="outline"
+          onClick={() => void onRescan()}
+          disabled={detecting}
+        >
+          {detected ? (
+            <CheckCircleFillIcon size={14} />
+          ) : (
+            <SyncIcon size={14} className={detecting ? "setup-modal__spin" : ""} />
+          )}
+          <span>
+            {detected
+              ? t("setup_download_rescan_found", {
+                  defaultValue: "Detected — click to re-verify",
+                })
+              : detecting
+                ? t("setup_download_rescanning", {
+                    defaultValue: "Scanning…",
+                  })
+                : t("setup_download_rescan", {
+                    defaultValue: "Rescan for installed emulator",
+                  })}
+          </span>
+        </Button>
+      </div>
 
       <div className="setup-modal__download-grid">
         {options === null && (
@@ -229,7 +247,7 @@ export function SetupStepDownload({ binary }: Readonly<Props>) {
               <button
                 type="button"
                 className="setup-modal__download-card-action"
-                onClick={() => handleInstall(option.id)}
+                onClick={() => onInstall(option.id)}
                 disabled={Boolean(installingId) && !isInstalling}
               >
                 <div className="setup-modal__download-card-badge">

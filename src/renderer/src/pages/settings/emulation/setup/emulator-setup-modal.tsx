@@ -3,7 +3,12 @@ import { useTranslation } from "react-i18next";
 
 import { Button, Modal } from "@renderer/components";
 import { useClassicsScan, useToast } from "@renderer/hooks";
-import type { EmulatorConfig, EmulatorSystem } from "@types";
+import type {
+  EmulatorConfig,
+  EmulatorInstallProgress,
+  EmulatorSystem,
+  ResolvedInstallOption,
+} from "@types";
 
 import { SetupFooter } from "./setup-footer";
 import { SetupStepDownload } from "./setup-step-download";
@@ -51,6 +56,16 @@ export function EmulatorSetupModal({
   const [detecting, setDetecting] = useState(false);
   const [ymlEntryCount, setYmlEntryCount] = useState(0);
   const [showDownloadHelp, setShowDownloadHelp] = useState(false);
+  // Install options + progress are owned by the modal (rather than the
+  // download subpage) so the find-emulator step can also render the primary
+  // "Install with Hydra" action inline — one fetch, one subscription, shared
+  // state across both pages.
+  const [installOptions, setInstallOptions] =
+    useState<ResolvedInstallOption[] | null>(null);
+  const [installProgress, setInstallProgress] = useState<
+    Record<string, EmulatorInstallProgress>
+  >({});
+  const [installingId, setInstallingId] = useState<string | null>(null);
 
   const autoDetectRef = useRef(false);
   const scanStartedRef = useRef(false);
@@ -67,10 +82,99 @@ export function EmulatorSetupModal({
       setScanComplete(false);
       setYmlEntryCount(0);
       setShowDownloadHelp(false);
+      setInstallOptions(null);
+      setInstallProgress({});
+      setInstallingId(null);
       autoDetectRef.current = false;
       scanStartedRef.current = false;
     }
   }, [visible, initialConfig]);
+
+  // Fetch install options once per (visible, binary). Both find-emulator and
+  // download pages consume the resulting list. Errors default to [] so the
+  // UI just doesn't render install buttons rather than getting stuck.
+  useEffect(() => {
+    if (!visible || !config?.binary) return;
+    let cancelled = false;
+    setInstallOptions(null);
+    window.electron
+      .getEmulatorInstallOptions(config.binary)
+      .then((result) => {
+        if (!cancelled) setInstallOptions(result);
+      })
+      .catch(() => {
+        if (!cancelled) setInstallOptions([]);
+      });
+    return () => {
+      cancelled = true;
+    };
+  }, [visible, config?.binary]);
+
+  // Subscribe once per binary so install progress updates land in either page.
+  useEffect(() => {
+    if (!config?.binary) return;
+    const unsub = window.electron.onEmulatorInstallProgress((payload) => {
+      if (payload.binary !== config.binary) return;
+      setInstallProgress((prev) => ({ ...prev, [payload.optionId]: payload }));
+    });
+    return unsub;
+  }, [config?.binary]);
+
+  const handleInstallOption = useCallback(
+    async (optionId: string) => {
+      if (!config?.binary || installingId) return;
+      setInstallingId(optionId);
+      try {
+        await window.electron.installEmulator(config.binary, optionId);
+      } finally {
+        setInstallingId(null);
+      }
+    },
+    [config?.binary, installingId]
+  );
+
+  // Rescan without leaving the current page — used by the "Rescan" button on
+  // the download subpage AND automatically after an install completes so the
+  // find-emulator page's status flips to "detected" without a manual click.
+  // Inlines getEmulatorConfigs rather than calling refreshConfig (defined
+  // further down) to avoid a forward-reference in this file's declaration
+  // order.
+  const handleRescan = useCallback(async () => {
+    if (!system) return;
+    setDetecting(true);
+    try {
+      const all = await window.electron.getEmulatorConfigs();
+      const refreshed = all[system];
+      if (refreshed?.executablePath) {
+        setConfig(refreshed);
+        return;
+      }
+      const preview = await window.electron.previewEmulatorExecutable(system);
+      if (!preview) return;
+      setConfig((curr) =>
+        curr
+          ? {
+              ...curr,
+              executablePath: preview.executablePath,
+              detectedVersion: preview.detectedVersion,
+            }
+          : curr
+      );
+    } finally {
+      setDetecting(false);
+    }
+  }, [system]);
+
+  // Auto-rescan when the currently-installing option completes. Skips if the
+  // exec is already known (avoids stomping a user-picked path) or if there is
+  // no active install.
+  useEffect(() => {
+    if (!installingId) return;
+    const current = installProgress[installingId];
+    if (current?.phase !== "done") return;
+    if (config?.executablePath) return;
+    void handleRescan();
+  }, [installingId, installProgress, config?.executablePath, handleRescan]);
 
   useEffect(() => {
     if (!visible || !system) return;
@@ -446,10 +550,23 @@ export function EmulatorSetupModal({
               detecting={detecting}
               onBrowse={handleBrowseExecutable}
               onShowDownloadHelp={() => setShowDownloadHelp(true)}
+              installOptions={installOptions}
+              installProgress={installProgress}
+              installingId={installingId}
+              onInstall={handleInstallOption}
             />
           )}
           {currentStep === "find_emulator" && config && showDownloadHelp && (
-            <SetupStepDownload binary={config.binary} />
+            <SetupStepDownload
+              binary={config.binary}
+              installOptions={installOptions}
+              installProgress={installProgress}
+              installingId={installingId}
+              onInstall={handleInstallOption}
+              onRescan={handleRescan}
+              detecting={detecting}
+              detected={config.executablePath !== null}
+            />
           )}
           {currentStep === "firmware" && config && system === "ps3" && (
             <SetupStepFirmware
