@@ -422,17 +422,29 @@ const extractPs3TitleId = async (
 //   "Zelda BOTW [Update v1.6.0][01007EF00011E000].nsp"
 //   "SMO (0100000000010000).xci"
 //
-// Deeper solution would parse the NSP/XCI header (PFS0/HFS0 structures)
-// but that requires the user's prod.keys to decrypt encrypted regions and
-// is significant binary-format work. Filename extraction covers the common
-// case for zero cost; users with mis-named dumps will get "unmatched" and
-// can rename to include the title ID.
+// Nintendo's title ID scheme uses the last 3 hex chars as a variant marker:
+//   .000        = base game (what titledb indexes, what Ryubing launches)
+//   .800        = update / patch (applies to base, can't launch standalone)
+//   .001–.1FF   = DLC add-ons for the base game
+//
+// We normalize update/DLC variants back to their base title ID at extraction
+// time — same game in the user's library, no duplicate entries, and titledb
+// lookup hits the base entry which is the only one that has metadata anyway.
+//
+// Deeper solution would parse the NSP/XCI header (PFS0/HFS0 structures) to
+// extract the title ID directly from the file, but that requires the user's
+// prod.keys to decrypt encrypted regions and is significant binary-format
+// work. Filename extraction covers the common case for zero cost.
 const SWITCH_TITLE_ID_RE = /\b(01[0-9a-fA-F]{14})\b/;
 
 const extractSwitchTitleId = (primaryPath: string): string | null => {
   const base = path.basename(primaryPath);
   const match = SWITCH_TITLE_ID_RE.exec(base);
-  return match ? match[1].toUpperCase() : null;
+  if (!match) return null;
+  const raw = match[1].toUpperCase();
+  // Zero the variant nibble → base game ID. Safe for retail Switch games,
+  // whose base IDs all end in `.000`.
+  return raw.substring(0, 13) + "000";
 };
 
 export const extractDiscSku = async (
