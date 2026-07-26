@@ -99,7 +99,18 @@ const runWindowsInstaller = async (filePath: string): Promise<boolean> => {
   return openError.length === 0;
 };
 
-const findRpcs3Executable = (root: string): string | null => {
+/**
+ * Recursively walks `root` and returns the first file whose basename matches
+ * any of `names` (case-insensitive). Used after ZIP/archive extraction —
+ * emulator archives commonly wrap the exe in a `publish/`, `bin/`, or
+ * version-suffixed subfolder (Ryubing = `publish/Ryujinx.exe`, RPCS3 =
+ * top-level `rpcs3.exe`), so a top-level check would miss most of them.
+ */
+const findExecutableRecursive = (
+  root: string,
+  names: readonly string[]
+): string | null => {
+  const lowerNames = names.map((n) => n.toLowerCase());
   const stack = [root];
   while (stack.length > 0) {
     const dir = stack.pop();
@@ -114,7 +125,7 @@ const findRpcs3Executable = (root: string): string | null => {
       const full = path.join(dir, entry.name);
       if (entry.isDirectory()) {
         stack.push(full);
-      } else if (entry.name.toLowerCase() === "rpcs3.exe") {
+      } else if (lowerNames.includes(entry.name.toLowerCase())) {
         return full;
       }
     }
@@ -214,8 +225,17 @@ export const downloadAndInstallEmulator = async (
     const extractDir = path.join(managedEmulatorsDir(), binary);
     await fs.promises.mkdir(extractDir, { recursive: true });
     await SevenZip.extractFile({ filePath: dest, outputPath: extractDir });
-    const rpcs3Exe = findRpcs3Executable(extractDir);
-    if (rpcs3Exe) await autoConfigureEmulator("ps3", rpcs3Exe);
+    // Walk the extracted tree looking for any known Windows exe name for
+    // this binary. Ryubing's ZIP nests the exe in a `publish/` folder so a
+    // top-level check misses it. If found, autoConfigureEmulator persists
+    // the path to LevelDB — that's what rescan / getEmulatorConfigs reads.
+    const foundExe = findExecutableRecursive(
+      extractDir,
+      KNOWN_BINARIES[BINARY_TO_SYSTEM[binary]].windowsNames
+    );
+    if (foundExe) {
+      await autoConfigureEmulator(BINARY_TO_SYSTEM[binary], foundExe);
+    }
     await removeTempDownload();
     shell.showItemInFolder(extractDir);
     sendProgress({ binary, optionId, phase: "done", path: extractDir });

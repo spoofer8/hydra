@@ -3,6 +3,7 @@ import { existsSync, readdirSync, statSync } from "node:fs";
 import { homedir } from "node:os";
 import path from "node:path";
 
+import { SystemPath } from "../system-path";
 import type { KnownBinary } from "./known-binaries";
 import { getEmulatorVersion } from "./get-emulator-version";
 
@@ -165,6 +166,41 @@ const findAppImage = (
   return null;
 };
 
+// Hydra's own emulator install directory (userData/emulators/<binary>/). ZIP
+// installs commonly wrap the exe in a `publish/`, `bin/`, or version-suffixed
+// subfolder, so we recursively walk this tree instead of expecting a specific
+// layout. Kept separate from the general Windows/Linux search functions so
+// this cheap targeted check runs even when the broad search wouldn't (e.g.
+// Ryubing on Windows lives here but nowhere else in windowsPortableDirs).
+const managedEmulatorDir = (binary: string): string =>
+  path.join(SystemPath.getPath("userData"), "emulators", binary);
+
+const searchManagedDir = (
+  binary: string,
+  names: readonly string[]
+): string | null => {
+  const root = managedEmulatorDir(binary);
+  if (!existsSync(root)) return null;
+
+  const lowerNames = names.map((n) => n.toLowerCase());
+  const stack = [root];
+  while (stack.length > 0) {
+    const dir = stack.pop();
+    if (!dir) continue;
+    const entries = safeReaddir(dir);
+    if (!entries) continue;
+    for (const entry of entries) {
+      const full = path.join(dir, entry);
+      if (safeIsDirectory(full)) {
+        stack.push(full);
+      } else if (lowerNames.includes(entry.toLowerCase())) {
+        return full;
+      }
+    }
+  }
+  return null;
+};
+
 const flatpakSystemDir = "/var/lib/flatpak/exports/bin";
 
 const tryFlatpak = (flatpakIds: string[]): string | null => {
@@ -209,6 +245,17 @@ export const detectEmulator = (
   const resolveVersion = options?.resolveVersion ?? false;
   const versionFor = (executablePath: string): string | null =>
     resolveVersion ? getEmulatorVersion(executablePath, binary) : null;
+
+  // Managed dir first — cheap, targeted, and the location where Hydra's own
+  // auto-installer drops emulators. Priority over PATH so a user with a
+  // stale system-wide install doesn't shadow a fresh in-app install.
+  const managed = searchManagedDir(binary.binary, names);
+  if (managed) {
+    return {
+      executablePath: managed,
+      detectedVersion: versionFor(managed),
+    };
+  }
 
   for (const name of names) {
     const onPath = lookupOnPath(name);
