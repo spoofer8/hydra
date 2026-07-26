@@ -296,6 +296,14 @@ GitHub rejects empty-string variable values, so `MAIN_VITE_NIMBUS_API_URL` is se
 
 **Optional (Sentry):** `SENTRY_AUTH_TOKEN` (secret) and `SENTRY_DSN` (variable). Skipping them is fine — the build succeeds without source-map upload.
 
+**Workflow write permissions** — one-time per fork. Fork repos default to read-only `GITHUB_TOKEN`; the Release workflow needs write to create the draft release. Flip it once:
+```bash
+gh api -X PUT /repos/spoofer8/hydra/actions/permissions/workflow \
+  -F default_workflow_permissions=write \
+  -F can_approve_pull_request_reviews=false
+```
+Without this, the workflow fails with `Resource not accessible by integration` at the Release step (see §12.6).
+
 Verify current state anytime:
 ```bash
 gh variable list --repo spoofer8/hydra
@@ -371,8 +379,25 @@ Typical duration: 15–25 min.
 - Confirm the branch prefix is exactly `release/` (with the slash). `releases/` or `Release/` won't match.
 - Check the Actions tab is enabled at the fork level (Settings → Actions → General).
 
-**Release workflow ran but no assets uploaded.**
-- Check the `GITHUB_TOKEN` in the workflow has `contents: write`. It does by default on fork repos, but org policies can strip it. Add `permissions: { contents: write }` to the job if missing.
+**Release workflow fails with `Resource not accessible by integration` on the Release step.**
+- The default `GITHUB_TOKEN` on fork repos is **read-only** — `softprops/action-gh-release` can't create the release. Fix once at the repo level:
+  ```bash
+  gh api -X PUT /repos/spoofer8/hydra/actions/permissions/workflow \
+    -F default_workflow_permissions=write \
+    -F can_approve_pull_request_reviews=false
+  ```
+  Verify:
+  ```bash
+  gh api /repos/spoofer8/hydra/actions/permissions/workflow
+  # → {"default_workflow_permissions":"write", …}
+  ```
+  Then rerun the failed workflow: `gh run rerun <run-id> --repo spoofer8/hydra`. This setting persists across upstream merges.
+- Alternative that survives even a repo settings reset: add to the workflow yaml under the `build` job:
+  ```yaml
+  permissions:
+    contents: write
+  ```
+  Downside: gets clobbered on upstream merges of `.github/workflows/release.yml`.
 
 **Windows build fails at `winCodeSign` extraction with symlink error.**
 - Not a workflow issue — that's the *local* Windows build. Enable Developer Mode (Settings → Privacy & security → For developers) or run as admin. GitHub runners are unaffected.
