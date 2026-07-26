@@ -5,9 +5,6 @@ import { KNOWN_BINARY_LABELS } from "@renderer/pages/settings/emulation/known-bi
 import ps1Art from "@renderer/assets/emulation/ps1.png";
 import ps2Art from "@renderer/assets/emulation/ps2.png";
 import ps3Art from "@renderer/assets/emulation/ps3.png";
-// PLACEHOLDER: switch.png is currently a copy of ps3.png. Replace the file at
-// src/renderer/src/assets/emulation/switch.png with a real Switch console
-// visual (~800x1067 PNG, same shape as ps3.png) before shipping publicly.
 import switchArt from "@renderer/assets/emulation/switch.png";
 
 export { EMULATOR_ICONS, KNOWN_BINARY_LABELS };

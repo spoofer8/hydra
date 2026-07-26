@@ -427,7 +427,7 @@ Fork-specific emulator addition. Upstream doesn't ship Switch — if you ever me
 src/main/events/emulators/check-switch-firmware.ts
 src/renderer/src/pages/settings/emulation/setup/setup-step-switch-keys.tsx
 src/renderer/src/pages/settings/emulation/setup/setup-step-switch-firmware.tsx
-src/renderer/src/assets/emulation/switch.png        # PLACEHOLDER (copy of ps3.png)
+src/renderer/src/assets/emulation/switch.png        # 800x1067 PNG matching ps1/ps2/ps3
 ```
 
 **Modified — reapply if upstream churns these:**
@@ -463,7 +463,6 @@ src/renderer/src/assets/emulation/switch.png        # PLACEHOLDER (copy of ps3.p
 **Ryubing gotchas that will bite on a merge:**
 - Ryubing distribution is NOT on GitHub — it's on `git.ryujinx.app` (Forgejo). If someone rewrites the install-source resolver to be GitHub-only, Switch install breaks silently (falls back to link-only mode).
 - Ryubing keeps the `Ryujinx.exe` binary name for compat. Don't "correct" this to `Ryubing.exe` — configs, guides, and third-party tooling all still say Ryujinx.
-- The Switch icon at `src/renderer/src/assets/emulation/switch.png` is a placeholder copy of ps3.png. Replace with real Switch console art before shipping publicly.
 - `save_data_id` (Ryubing's save directory name) is NOT the same as `title_id` (Nintendo's game identifier). Mapping between them requires parsing Ryubing's system save DB — deferred to v2. Cloud saves in v1 are keyed by `save_data_id`.
 
 For the pattern of adding any new emulator (Nintendo 3DS, Wii U, etc.), see [ADDING_EMULATORS.md](./ADDING_EMULATORS.md).
