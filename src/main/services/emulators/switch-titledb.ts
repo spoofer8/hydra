@@ -98,15 +98,29 @@ const normalizeEntry = (
   };
 };
 
+const TITLE_ID_RE = /^[0-9A-Fa-f]{16}$/;
+
 const parseDatabase = (
   text: string
 ): Map<string, SwitchTitleMetadata> => {
   const dict = JSON.parse(text) as Record<string, TitledbRawEntry>;
   const map = new Map<string, SwitchTitleMetadata>();
-  for (const [rawId, entry] of Object.entries(dict)) {
-    if (!/^[0-9A-Fa-f]{16}$/.test(rawId)) continue;
-    const normalized = normalizeEntry(rawId.toUpperCase(), entry);
-    if (normalized) map.set(rawId.toUpperCase(), normalized);
+  // titledb keys the outer dict by NSU ID (14-digit Nintendo eShop id like
+  // `70010000000025`), not by title ID. The actual 16-hex title ID we care
+  // about — the one that appears in ROM filenames — lives inside each entry
+  // as `entry.id`. Iterate values and pull the id from there.
+  //
+  // Some entries have null `id` (update/DLC placeholders or malformed
+  // records); skip those. When multiple entries share a title ID (e.g. a
+  // base game and its update record), the later one wins — usually fine
+  // since base games appear before updates in the dump; if not, the update
+  // record still carries the correct name/art.
+  for (const entry of Object.values(dict)) {
+    const titleId = typeof entry?.id === "string" ? entry.id : null;
+    if (!titleId || !TITLE_ID_RE.test(titleId)) continue;
+    const key = titleId.toUpperCase();
+    const normalized = normalizeEntry(key, entry);
+    if (normalized) map.set(key, normalized);
   }
   return map;
 };
