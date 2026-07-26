@@ -62,8 +62,25 @@ export function SetupStepSwitchKeys({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  const openRyubingDocs = () => {
-    window.electron.openExternal("https://ryubing.org/");
+  const openProdKeysGuide = () => {
+    // Third-party guide with a step-by-step walkthrough of obtaining and
+    // installing prod.keys for Ryujinx-derived emulators (Ryubing included).
+    // Chosen over ryubing.org because it has copy-pasteable install steps
+    // rather than assuming familiarity with the emulator's own docs.
+    window.electron.openExternal(
+      "https://prodkeys.net/ryujinx-prod-keys-update-4//"
+    );
+  };
+
+  const openRyubing = () => {
+    // Ryubing lets the user drag a prod.keys file onto the window (or use
+    // File → Open Ryujinx Folder → system to place it manually), so
+    // launching the emulator from this step is a natural companion action.
+    // No-op if we haven't detected the executable yet — the button hides
+    // in that case via the config.executablePath check in the JSX below.
+    if (config.executablePath) {
+      window.electron.openExternal(`file://${config.executablePath}`);
+    }
   };
 
   return (
@@ -73,51 +90,42 @@ export function SetupStepSwitchKeys({
       </h3>
       <div>
         <p className="setup-modal__body-intro" style={{ margin: 0 }}>
-          {t("setup_switch_keys_intro_1", {
+          {t("setup_switch_keys_intro", {
             defaultValue:
-              "Ryubing needs prod.keys (from your own Switch console) to decrypt games. Nintendo does not distribute keys; you must dump them from a Switch you own.",
+              "Ryubing needs prod.keys to decrypt games. Follow the guide below to download and install them, then come back and click Check again.",
           })}
         </p>
-        <p className="setup-modal__body-intro" style={{ margin: 0 }}>
-          {t("setup_switch_keys_intro_2", {
-            defaultValue:
-              "title.keys is optional — only needed for a small set of legacy titles.",
-          })}
-        </p>
-      </div>
-
-      <div className="setup-modal__numbered-list">
-        <div className="setup-modal__numbered-item">
-          <span className="setup-modal__numbered-marker">1</span>
-          <span className="setup-modal__numbered-text">
-            {t("setup_switch_keys_step_1", {
-              defaultValue:
-                "Dump prod.keys from your Switch using Lockpick_RCM (RCM-vulnerable units) or NxKeygen (modchipped units).",
+        {keysPath && (
+          <p className="setup-modal__body-intro" style={{ margin: 0 }}>
+            {t("setup_switch_keys_path_hint", {
+              defaultValue: `Install location: ${keysPath}`,
+              path: keysPath,
             })}
-          </span>
-        </div>
-        <div className="setup-modal__numbered-item">
-          <span className="setup-modal__numbered-marker">2</span>
-          <span className="setup-modal__numbered-text">
-            {t("setup_switch_keys_step_2", {
-              defaultValue: keysPath
-                ? `Place prod.keys at: ${keysPath}`
-                : "Copy the file into Ryubing's system/ folder (next to Config.json).",
-            })}
-          </span>
-        </div>
+          </p>
+        )}
       </div>
 
       <div className="setup-modal__hint">
         <button
           type="button"
           className="setup-modal__link-button"
-          onClick={openRyubingDocs}
+          onClick={openProdKeysGuide}
         >
           {t("setup_switch_keys_guide", {
-            defaultValue: "Open Ryubing setup docs",
+            defaultValue: "Open prod.keys guide",
           })}
         </button>
+        {config.executablePath && (
+          <button
+            type="button"
+            className="setup-modal__ghost-button"
+            onClick={openRyubing}
+          >
+            {t("setup_switch_keys_open_emulator", {
+              defaultValue: "Launch Ryubing",
+            })}
+          </button>
+        )}
         <button
           type="button"
           className="setup-modal__ghost-button"

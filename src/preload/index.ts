@@ -229,6 +229,8 @@ contextBridge.exposeInMainWorld("electron", {
     ipcRenderer.invoke("rescanEmulator", system, language),
   checkPs3Firmware: (executablePath: string | null) =>
     ipcRenderer.invoke("checkPs3Firmware", executablePath),
+  checkSwitchFirmware: (executablePath: string | null) =>
+    ipcRenderer.invoke("checkSwitchFirmware", executablePath),
   checkEmulatorBios: (
     system: EmulatorSystem,
     executablePath: string | null,
@@ -265,6 +267,8 @@ contextBridge.exposeInMainWorld("electron", {
   addEmulatorRomPath: (system: EmulatorSystem, folderPath: string) =>
     ipcRenderer.invoke("addEmulatorRomPath", system, folderPath),
   getRpcs3DefaultSources: () => ipcRenderer.invoke("getRpcs3DefaultSources"),
+  getRyubingDefaultSources: () =>
+    ipcRenderer.invoke("getRyubingDefaultSources"),
   removeEmulator: (system: EmulatorSystem) =>
     ipcRenderer.invoke("removeEmulator", system),
   checkEmulatorExecutable: (system: EmulatorSystem) =>
