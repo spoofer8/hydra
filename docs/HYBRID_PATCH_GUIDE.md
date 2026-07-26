@@ -418,6 +418,58 @@ Typical duration: 15–25 min.
 
 ---
 
+## 12.7 Nintendo Switch (Ryubing) integration
+
+Fork-specific emulator addition. Upstream doesn't ship Switch — if you ever merge from `hydralauncher/hydra`, none of this will conflict, but be aware these files won't exist upstream.
+
+**Additive files (nothing to merge):**
+```
+src/main/events/emulators/check-switch-firmware.ts
+src/renderer/src/pages/settings/emulation/setup/setup-step-switch-keys.tsx
+src/renderer/src/pages/settings/emulation/setup/setup-step-switch-firmware.tsx
+src/renderer/src/assets/emulation/switch.png        # PLACEHOLDER (copy of ps3.png)
+```
+
+**Modified — reapply if upstream churns these:**
+
+| File | What to preserve |
+|---|---|
+| `src/types/emulator.types.ts` | `"switch"` in `EmulatorSystem`, `"ryujinx"` in `EmulatorBinary`, `EmulationSavePlatform`, `EmulationSaveEmulator` |
+| `src/main/services/emulators/known-binaries.ts` | Full `switch` entry (Ryubing exec names, ROM extensions) |
+| `src/main/services/emulators/emulator-install-sources.ts` | `ForgejoAssetSource` type + `ryujinxEntries()` + Forgejo resolver — Ryubing is hosted at `git.ryujinx.app` (Forgejo), NOT GitHub |
+| `src/main/services/emulators/emulator-config.ts` | `ryujinxConfigCandidates`, `ryujinxConfigRoots`, `readRyujinxGameDirs`, `addRyujinxGameDir`, `ryujinxSystemDirs`, `ryujinxFirmwareDirs`, `ryujinxSaveDirs` |
+| `src/main/services/emulators/firmware-detection.ts` | `inspectSwitchFirmware`, `isSwitchReady`, `SwitchFirmwareStatus` |
+| `src/main/services/emulators/emulator-installer.ts` | `BINARY_TO_SYSTEM.ryujinx = "switch"` |
+| `src/main/services/emulators/emulation-cloud-saves.ts` | `enumerateSwitchSaves`, `packSwitchSaveDirectory`, `unpackSwitchSaveDirectory`, `uploadSwitchSaveEntry`, `restoreSwitchSaveEntry`, updated `toEmulationSaveEmulator` (rpcs3-only blacklist) |
+| `src/main/events/emulators/emulator-rom-paths.ts` | `system === "switch"` branches + `getRyubingDefaultSources` event |
+| `src/main/events/emulators/index.ts` | `import "./check-switch-firmware"` |
+| `src/main/events/emulators/import-launchbox-roms.ts` | `switch: "Nintendo Switch"` in `SYSTEM_DEFAULT_PLATFORM` and `SYSTEM_CATALOGUE_PLATFORM` |
+| `src/main/helpers/launch-classics-game.ts` | `ryujinx` case in `buildEmulatorArgs` |
+| `src/main/helpers/open-classics-game.ts` | `translateLaunchError` param widened to `EmulatorSystem` |
+| `src/renderer/src/declaration.d.ts` | `checkSwitchFirmware`, `getRyubingDefaultSources` IPC; `getEmulatorRomExtensions` widened to `EmulatorSystem` |
+| `src/renderer/src/helpers.ts` | `nintendo\s*switch\|\bnsw\b` regex in `platformToSystem` (BEFORE PlayStation branches) + `switch: "ryujinx"` in `SYSTEM_TO_BINARY` |
+| `src/renderer/src/pages/settings/emulation/known-binary-labels.ts` | `ryujinx: "Ryubing"` |
+| `src/renderer/src/pages/settings/emulation/settings-context-emulation.tsx` | `"switch"` in `SYSTEMS` + label |
+| `src/renderer/src/pages/settings/emulation/emulation-save-modals.tsx` | `switch` stub entry in `PICK_FILTERS` (type-satisfier only) |
+| `src/renderer/src/pages/settings/emulation/setup/setup-step-download.tsx` | `ryujinx` entries in `OFFICIAL_WEBSITES` + `ARTICLE_KEYS` |
+| `src/renderer/src/pages/settings/emulation/setup/types.ts` | `"keys"` StepKind + `system === "switch"` branch in `stepListForSystem` |
+| `src/renderer/src/pages/settings/emulation/setup/emulator-setup-modal.tsx` | Split firmware step by system (PS3 vs Switch), new keys step render, `keysOk` state, `getRyubingDefaultSources` prefill for `rom_folder`, `switch` in `addEmulatorRomPath` allowlist |
+| `src/big-picture/src/pages/settings/emulation/shared.ts` | `switch` in `EMULATION_SYSTEMS`, `EMULATION_SYSTEM_LABELS`, `EMULATION_SYSTEM_ART` + `switchArt` import |
+| `src/big-picture/src/pages/settings/emulation/index.tsx` | `switch` entry in `cardNavigationOverridesBySystem`, `ps3.right` re-pointed to switch |
+| `src/big-picture/src/pages/settings/emulation/emulation-cloud-restore-modal.tsx` | `switch` stub entry in `PICK_FILTERS` |
+| `src/big-picture/src/pages/settings/settings-navigation.ts` | `switch` in `EMULATION_OVERVIEW_CARD_FOCUS_IDS` |
+| `src/locales/en/translation.json`, `src/locales/pt-BR/translation.json` | `setup_step_switch_keys*`, `setup_step_switch_firmware*`, `setup_step_label_keys` |
+
+**Ryubing gotchas that will bite on a merge:**
+- Ryubing distribution is NOT on GitHub — it's on `git.ryujinx.app` (Forgejo). If someone rewrites the install-source resolver to be GitHub-only, Switch install breaks silently (falls back to link-only mode).
+- Ryubing keeps the `Ryujinx.exe` binary name for compat. Don't "correct" this to `Ryubing.exe` — configs, guides, and third-party tooling all still say Ryujinx.
+- The Switch icon at `src/renderer/src/assets/emulation/switch.png` is a placeholder copy of ps3.png. Replace with real Switch console art before shipping publicly.
+- `save_data_id` (Ryubing's save directory name) is NOT the same as `title_id` (Nintendo's game identifier). Mapping between them requires parsing Ryubing's system save DB — deferred to v2. Cloud saves in v1 are keyed by `save_data_id`.
+
+For the pattern of adding any new emulator (Nintendo 3DS, Wii U, etc.), see [ADDING_EMULATORS.md](./ADDING_EMULATORS.md).
+
+---
+
 ## 13. Release Checklist (copy-paste)
 
 ```
