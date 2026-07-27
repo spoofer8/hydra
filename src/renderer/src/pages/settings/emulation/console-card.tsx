@@ -9,6 +9,7 @@ import { formatRelativeShort } from "./relative-time";
 import ps1Art from "@renderer/assets/emulation/ps1.png";
 import ps2Art from "@renderer/assets/emulation/ps2.png";
 import ps3Art from "@renderer/assets/emulation/ps3.png";
+import switchArt from "@renderer/assets/emulation/switch.png";
 
 import "./console-card.scss";
 
@@ -16,6 +17,7 @@ const ART: Record<string, string> = {
   ps1: ps1Art,
   ps2: ps2Art,
   ps3: ps3Art,
+  switch: switchArt,
 };
 
 interface ConsoleCardProps {
